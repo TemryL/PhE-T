@@ -10,8 +10,8 @@ class PhenotypeTokenizer:
         self.p_name_map: Dict[int, str] = {}
         self.v_id_map: Dict[int, Dict[Union[str, int, float], int]] = {}
         self.v_desc_map: Dict[int, Dict[int, str]] = {}
-        self.n_p = 0
-        self.n_v = 0
+        self.p_size = 0
+        self.v_size = 0
         self.next_p_id = 0
         self.next_v_id = 0
         self.num_features: List[str] = []
@@ -38,8 +38,8 @@ class PhenotypeTokenizer:
             for value in df[feature].unique():
                 self._add_value(feature, value)
         
-        self.n_p = self.next_p_id
-        self.n_v = self.next_v_id
+        self.p_size = self.next_p_id
+        self.v_size = self.next_v_id
 
     def encode(self, row: Dict[str, Any]) -> Dict[str, int]:
         phenotype_ids = []

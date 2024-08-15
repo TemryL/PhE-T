@@ -34,3 +34,15 @@ Return to the root folder and preprocess the raw data with the following command
 ```bash
 python preprocess.py data/raw_data.csv configs/preprocess_cfg.py data/preprocessed_data.csv
 ```
+
+## Training
+```bash
+python train.py \
+    --nb_epochs=1 \
+    --nb_gpus=1 \
+    --nb_nodes=1 \
+    --nb_workers=20 \
+    --pin_memory \
+    --config='configs/train_cfg.py' \
+    --run_name='debug'
+```
