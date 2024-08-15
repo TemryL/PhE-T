@@ -1,6 +1,12 @@
 import pandas as pd
 import numpy as np
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, TypedDict
+
+
+class BooleanTraitInfo(TypedDict):
+    name: int
+    true_id: int
+    false_id: int
 
 
 class PhenotypeTokenizer:
@@ -8,8 +14,8 @@ class PhenotypeTokenizer:
         self.n_bins = n_bins
         self.p_id_map: Dict[str, int] = {}
         self.p_name_map: Dict[int, str] = {}
-        self.v_id_map: Dict[int, Dict[Union[str, int, float], int]] = {}
-        self.v_desc_map: Dict[int, Dict[int, str]] = {}
+        self.v_id_map: Dict[int, Dict[Union[str, int, float, bool], int]] = {}
+        self.v_desc_map: Dict[int, Dict[int, Union[str, bool]]] = {}
         self.p_size = 0
         self.v_size = 0
         self.next_p_id = 0
@@ -17,6 +23,7 @@ class PhenotypeTokenizer:
         self.num_features: List[str] = []
         self.cat_features: List[str] = []
         self.bin_edges: Dict[str, np.ndarray] = {}
+        self.boolean_traits: Dict[str, BooleanTraitInfo] = {}
         self._add_special_tokens()
     
     def fit(self, df: pd.DataFrame, num_features: List[str], cat_features: List[str]):
@@ -35,8 +42,20 @@ class PhenotypeTokenizer:
 
         for feature in self.cat_features:
             self._add_phenotype(feature)
-            for value in df[feature].unique():
-                self._add_value(feature, value)
+            unique_values = df[feature].unique()
+            for value in unique_values:
+                self._add_value(feature, self._convert_numpy_type(value))
+            
+            # Check if this is a bool trait
+            if len(unique_values) == 2 and set(unique_values) == {True, False}:
+                p_id = self.get_phenotype_id(feature)
+                true_id = self.v_id_map[p_id][True]
+                false_id = self.v_id_map[p_id][False]
+                self.boolean_traits[p_id] = BooleanTraitInfo(
+                    name=feature,
+                    true_id=true_id,
+                    false_id=false_id
+                )
         
         self.p_size = self.next_p_id
         self.v_size = self.next_v_id
@@ -99,11 +118,6 @@ class PhenotypeTokenizer:
                 decoded[phenotype] = value
         
         return decoded
-    
-    def _add_special_tokens(self):
-        self._add_phenotype('Special tokens')
-        v_id = self._add_value('Special tokens', 'Mask token')
-        self.mask_token_id = v_id
 
     def _add_phenotype(self, name: str) -> int:
         if name not in self.p_id_map:
@@ -115,12 +129,12 @@ class PhenotypeTokenizer:
             self.next_p_id += 1
         return self.p_id_map[name]
 
-    def _add_value(self, phenotype: str, value: Union[str, int, float]) -> int:
+    def _add_value(self, phenotype: str, value: Union[str, int, float, bool]) -> int:
         p_id = self.p_id_map[phenotype]
         if value not in self.v_id_map[p_id]:
             v_id = self.next_v_id
             self.v_id_map[p_id][value] = v_id
-            self.v_desc_map[p_id][v_id] = str(value)
+            self.v_desc_map[p_id][v_id] = value
             self.next_v_id += 1
         return self.v_id_map[p_id][value]
 
@@ -135,3 +149,21 @@ class PhenotypeTokenizer:
 
     def get_value_description(self, p_id: int, v_id: int) -> str:
         return self.v_desc_map[p_id].get(v_id, "Unknown")
+
+    def get_boolean_trait_info(self, p_id: int) -> Union[BooleanTraitInfo, None]:
+        return self.boolean_traits.get(p_id)
+    
+    def _add_special_tokens(self):
+        self._add_phenotype('Special tokens')
+        v_id = self._add_value('Special tokens', 'Mask token')
+        self.mask_token_id = v_id
+
+    @staticmethod
+    def _convert_numpy_type(value: Any) -> Any:
+        if isinstance(value, (np.int64, np.int32, np.int16, np.int8)):
+            return int(value)
+        elif isinstance(value, (np.float64, np.float32)):
+            return float(value)
+        elif isinstance(value, np.bool_):
+            return bool(value)
+        return value

@@ -24,25 +24,32 @@ class MHMDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):        
-        # Create value_ids, phenotype_ids and labels for MHM
-        value_ids = torch.tensor(self.data[idx]['value_ids'])
+        # Create value_ids, phenotype_ids and labels for MHM and boolean trait prediction
         phenotype_ids = torch.tensor(self.data[idx]['phenotype_ids'])
-        labels = value_ids.clone()
+        hm_value_ids = torch.tensor(self.data[idx]['value_ids'])
+        pred_value_ids = torch.tensor(self.data[idx]['value_ids'])
+        hm_labels = hm_value_ids.clone()
+        pred_labels = pred_value_ids.clone()
         
         # Create probability matrix for masking
-        prob_matrix = torch.full(labels.shape, self.mlm_probability)
+        prob_matrix = torch.full(hm_labels.shape, self.mlm_probability)
                 
-        # Create mask for tokens to be predicted
-        masked_indices = torch.bernoulli(prob_matrix).bool()
-        labels[~masked_indices] = -100    # only compute loss on masked tokens
+        # Create mask for health modeling tokens prediction
+        hm_mask = torch.bernoulli(prob_matrix).bool()
+        hm_labels[~hm_mask] = -100    # only compute loss on masked tokens
+        hm_value_ids[hm_mask] = self.tokenizer.mask_token_id
         
-        # Replace masked input tokens with tokenizer.mask_token_id
-        value_ids[masked_indices] = self.tokenizer.mask_token_id
+        # Creat mask for boolean trait prediction
+        bool_trait_ids = torch.tensor(list(self.tokenizer.boolean_traits.keys()))
+        pred_mask = (phenotype_ids[..., None] == bool_trait_ids).any(dim=-1)
+        pred_value_ids[pred_mask] = self.tokenizer.mask_token_id
         
         return {
-            'value_ids': value_ids,
             'phenotype_ids': phenotype_ids,
-            'labels': labels
+            'hm_value_ids': hm_value_ids,
+            'hm_labels': hm_labels,
+            'pred_value_ids': pred_value_ids,
+            'pred_labels': pred_labels,
         }
 
 

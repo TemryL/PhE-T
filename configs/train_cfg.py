@@ -52,5 +52,5 @@ diseases = [
 learning_rate = 1e-4
 adamw_epsilon = 1e-6
 adamw_betas = (0.9, 0.98)
-warmup_steps = 10000
+warmup_steps = 1000
 weight_decay = 0.01

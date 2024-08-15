@@ -153,6 +153,26 @@ class BERT(nn.Module):
 
         return {'loss': loss, 'logits': logits, 'hidden_states': x}
 
+    def predict(self, value_ids, phenotype_ids, bool_traits):
+        outputs = self.forward(value_ids, phenotype_ids)
+        logits = outputs['logits']
+        probs = F.softmax(logits, dim=-1)
+
+        scores = {}
+        for trait_id, trait_info in bool_traits.items():
+            trait_pos = (phenotype_ids == trait_id)
+            
+            if not trait_pos.any():
+                continue
+
+            trait_probs = probs[trait_pos]
+            positive_probs = trait_probs[:, trait_info['true_id']]
+            negative_probs = trait_probs[:, trait_info['false_id']]
+            score = positive_probs / (positive_probs + negative_probs)
+            # risk_score = positive_probs
+            scores[trait_info['name']] = score
+        return scores
+    
     @classmethod
     def from_lightning_checkpoint(cls, ckpt_path):
         checkpoint = torch.load(ckpt_path, map_location=torch.device('cpu'), weights_only=True)

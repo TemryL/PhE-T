@@ -57,6 +57,7 @@ def main():
     bert = BERT(bert_config)
     model = MHMTransformer(
         model = bert,
+        tokenizer = dm.tokenizer,
         learning_rate = cfg.learning_rate,
         adamw_epsilon = cfg.adamw_epsilon,
         adamw_betas = cfg.adamw_betas,
