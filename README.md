@@ -5,7 +5,7 @@
 ### Cloning the Repository
 First, clone the repository using the following command:
 ```bash
-git clone --recurse-submodules -j8 git@github.com:repo  #TODO
+git clone --recurse-submodules -j8 https://github.com/TemryL/PhE-T.git
 ```
 
 ### Installing Dependencies
@@ -28,14 +28,21 @@ Follow these steps to create raw data. More details can be found in the [UKB-Too
 ```bash
 cd UKB-Tools
 python commands/get_newest_baskets.py $UKB_FOLDER $PROJECT_ID ../data/ukb_fields.txt ../data/field_to_basket.json
-python commands/create_data.py $UKB_FOLDER ../data/field_to_basket.json ../data/raw_data.csv
+python commands/create_data.py $UKB_FOLDER ../data/field_to_basket.json ../data/raw.csv
 ```
 
 ### Preprocessing Raw Data
 Return to the root folder and preprocess the raw data with the following command:
 ```bash
-python preprocess.py data/raw_data.csv configs/preprocess_cfg.py data/preprocessed_data.csv
+python preprocess.py data/raw_data.csv configs/preprocess_cfg.py data/preprocessed.csv
 ```
+
+### Generating splits
+To split the dataset in train/val/test sets, run the following command:
+```bash
+python split.py --data_path data/preprocessed.csv --val_size 10000 --test_size 10000 --save_dir data/
+```
+
 
 ## Training
 ```bash

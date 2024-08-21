@@ -1,6 +1,6 @@
 # Custom ignore
 data/
-notebooks/
+notebooks/explore.ipynb
 wandb/
 ckpts/
 
