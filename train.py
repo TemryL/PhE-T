@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from importlib.machinery import SourceFileLoader
-from bert import BERTConfig, BERT
+from phet import PhETConfig, PhET
 from src.data import MHMDataModule
 from src.model import MHMTransformer
 
@@ -52,11 +52,11 @@ def main():
     )
     
     # Create model:
-    bert_config = BERTConfig()
-    bert_config.update(**cfg.bert_config)
-    bert = BERT(bert_config)
+    phet_config = PhETConfig()
+    phet_config.update(**cfg.phet_config)
+    phet = PhET(phet_config)
     model = MHMTransformer(
-        model = bert,
+        model = phet,
         tokenizer = dm.tokenizer,
         learning_rate = cfg.learning_rate,
         adamw_epsilon = cfg.adamw_epsilon,

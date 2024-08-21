@@ -84,7 +84,7 @@ class Layer(nn.Module):
 
 
 @dataclass
-class BERTConfig:
+class PhETConfig:
     p_size = 25
     v_size = 665
     context_size = 32
@@ -102,7 +102,7 @@ class BERTConfig:
                 raise ValueError(f"Invalid config parameter: {key}")
 
 
-class BERT(nn.Module):
+class PhET(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -180,8 +180,8 @@ class BERT(nn.Module):
         state_dict = {k.replace('model.', ''): v for k, v in state_dict.items()}
         
         hparams = checkpoint.get('hyper_parameters', {})
-        config = BERTConfig()
-        config.update(**hparams.get('bert_config', {}))
+        config = PhETConfig()
+        config.update(**hparams.get('phet_config', {}))
         model = cls(config)
     
         model.load_state_dict(state_dict)    

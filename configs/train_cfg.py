@@ -1,5 +1,5 @@
 # Model:
-bert_config = {
+phet_config = {
     'p_size': 25,
     'v_size': 665,
     'context_size': 24,
