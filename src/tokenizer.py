@@ -76,6 +76,9 @@ class PhenotypeTokenizer:
                 if bin_index == 0:
                     lower = round(bin_edges[bin_index], 2)
                     upper = round(bin_edges[bin_index + 1], 2)
+                elif bin_index == len(bin_edges):
+                    lower = round(bin_edges[-2], 2)
+                    upper = round(bin_edges[-1], 2)
                 else:
                     lower = round(bin_edges[bin_index - 1], 2)
                     upper = round(bin_edges[bin_index], 2)

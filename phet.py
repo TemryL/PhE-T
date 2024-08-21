@@ -89,7 +89,6 @@ class Layer(nn.Module):
 class PhETConfig:
     p_size = 25
     v_size = 665
-    context_size = 32
     n_layers = 12
     n_heads = 12
     h_dim = 768

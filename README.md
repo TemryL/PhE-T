@@ -47,11 +47,11 @@ python split.py --data_path data/preprocessed.csv --val_size 10000 --test_size 1
 ## Training
 ```bash
 python train.py \
-    --nb_epochs=1 \
+    --nb_epochs=10 \
     --nb_gpus=1 \
     --nb_nodes=1 \
     --nb_workers=20 \
     --pin_memory \
     --config='configs/train_cfg.py' \
-    --run_name='debug'
+    --run_name='v0'
 ```

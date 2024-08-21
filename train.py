@@ -40,13 +40,13 @@ def main():
     # Create data module: 
     dm = MHMDataModule(
         train_data = cfg.train_data,
+        val_data = cfg.val_data,
         test_data = cfg.test_data,
         num_features =  cfg.num_features,
         cat_features = cfg.cat_features + cfg.diseases,
         n_bins = cfg.n_bins,
         batch_size = cfg.batch_size,
         n_workers = nb_workers, 
-        train_val_split = cfg.train_val_split,
         mlm_probability = cfg.mlm_probability,
         pin_memory = pin_memory
     )
@@ -77,7 +77,7 @@ def main():
     )
 
     # Set logger:
-    logger = WandbLogger(project='to_be_named', name=run_name)
+    logger = WandbLogger(project='PhE-T', name=run_name)
     logger.watch(model)
     
     # Set trainer:

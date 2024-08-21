@@ -15,7 +15,7 @@ class MHMTransformer(L.LightningModule):
         adamw_epsilon: float = 1e-8,
         adamw_betas: tuple = (0.9, 0.98),
         warmup_steps: int = 10000,
-        weight_decay: float = 0.0
+        weight_decay: float = 0.0,
     ):
         super().__init__()
         self.save_hyperparameters(ignore=['model'])

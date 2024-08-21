@@ -4,7 +4,6 @@ import lightning as L
 from tqdm import tqdm
 from typing import List
 from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import train_test_split
 from .tokenizer import PhenotypeTokenizer
 
 
@@ -54,21 +53,20 @@ class MHMDataset(Dataset):
 
 
 class MHMDataModule(L.LightningDataModule):
-    def __init__(self, train_data: str, test_data: str,
+    def __init__(self, train_data: str, val_data: str, test_data: str,
                  num_features: List[str], cat_features: List[str],
-                 batch_size: int = 32, n_workers: int = 4, 
-                 train_val_split: float = 0.95,
+                 batch_size: int = 32, n_workers: int = 4,
                  n_bins: int = 100,
                  mlm_probability: float = 0.15,
                  pin_memory: bool = True):
         super().__init__()
         self.train_data = train_data
+        self.val_data = val_data
         self.test_data = test_data
         self.num_features = num_features
         self.cat_features = cat_features
         self.batch_size = batch_size
         self.n_workers = n_workers
-        self.train_val_split = train_val_split
         self.n_bins = n_bins
         self.mlm_probability = mlm_probability
         self.pin_memory = pin_memory
@@ -80,10 +78,8 @@ class MHMDataModule(L.LightningDataModule):
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
             train_df = pd.read_csv(self.train_data).drop('eid', axis=1)
-            self.tokenizer.fit(train_df, self.num_features, self.cat_features)
-            
-            train_df, val_df = train_test_split(train_df, train_size=self.train_val_split, random_state=42)
-            train_df, val_df = train_df.reset_index(drop=True), val_df.reset_index(drop=True)
+            val_df = pd.read_csv(self.val_data).drop('eid', axis=1)
+            self.tokenizer.fit(pd.concat([train_df, val_df]), self.num_features, self.cat_features)
             
             self.train_dataset = MHMDataset(train_df, self.tokenizer, mlm_probability=self.mlm_probability)
             self.val_dataset = MHMDataset(val_df, self.tokenizer, mlm_probability=self.mlm_probability)

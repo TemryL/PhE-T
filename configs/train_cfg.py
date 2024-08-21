@@ -2,7 +2,6 @@
 phet_config = {
     'p_size': 25,
     'v_size': 665,
-    'context_size': 24,
     'n_layers': 12,
     'n_heads': 12,
     'h_dim': 768,
@@ -12,10 +11,10 @@ phet_config = {
 
 # Data:
 batch_size = 256
-train_val_split = 0.95
 mlm_probability = 0.15
 n_bins = 100
 train_data = 'data/train.csv'
+val_data = 'data/val.csv'
 test_data = 'data/test.csv'
 num_features = [
     'BMI',
