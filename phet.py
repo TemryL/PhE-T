@@ -1,3 +1,5 @@
+# s/o Karpathy: https://github.com/karpathy/nanoGPT/blob/master/model.py
+
 import math
 import torch
 import torch.nn as nn
