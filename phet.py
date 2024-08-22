@@ -15,8 +15,8 @@ class SelfAttention(nn.Module):
         self.n_heads = config.n_heads
         self.h_dim = config.h_dim
         
-        self.qkv_proj = nn.Linear(config.h_dim, 3 * config.h_dim)
-        self.o_proj = nn.Linear(config.h_dim, config.h_dim)
+        self.qkv_proj = nn.Linear(config.h_dim, 3 * config.h_dim, bias=False)
+        self.o_proj = nn.Linear(config.h_dim, config.h_dim, bias=False)
         
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
@@ -58,9 +58,9 @@ class SelfAttention(nn.Module):
 class MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.fc1 = nn.Linear(config.h_dim, 4*config.h_dim)
+        self.fc1 = nn.Linear(config.h_dim, 4*config.h_dim, bias=False)
         self.gelu = nn.GELU()
-        self.fc2 = nn.Linear(4*config.h_dim, config.h_dim)
+        self.fc2 = nn.Linear(4*config.h_dim, config.h_dim, bias=False)
         self.dropout = nn.Dropout(config.dropout)
     
     def forward(self, x):
@@ -74,14 +74,14 @@ class MLP(nn.Module):
 class Layer(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.ln_1 = nn.RMSNorm(config.h_dim, eps=config.ln_eps)
         self.attn = SelfAttention(config)
-        self.ln_1 = nn.LayerNorm(config.h_dim, eps=config.ln_eps)
+        self.ln_2 = nn.RMSNorm(config.h_dim, eps=config.ln_eps)
         self.mlp = MLP(config)
-        self.ln_2 = nn.LayerNorm(config.h_dim, eps=config.ln_eps)
         
     def forward(self, x, mask=None):
-        x = self.ln_1(x + self.attn(x, mask))
-        x = self.ln_2(x + self.mlp(x))
+        x = x + self.attn(self.ln_1(x), mask)
+        x = x + self.mlp(self.ln_2(x))
         return x
 
 
@@ -111,7 +111,7 @@ class PhET(nn.Module):
             value_embeds = nn.Embedding(config.v_size, config.h_dim),
             phenotype_embeds = nn.Embedding(config.p_size, config.h_dim),
         ))
-        self.ln = nn.LayerNorm(config.h_dim, eps=config.ln_eps)
+        self.ln = nn.RMSNorm(config.h_dim, eps=config.ln_eps)
         self.encoder = nn.ModuleDict(dict(
             layer = nn.ModuleList([Layer(config) for _ in range(config.n_layers)])
         ))
@@ -122,16 +122,11 @@ class PhET(nn.Module):
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=0.02)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
-                module.bias.data.zero_()
+                torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=0.02)
-            if module.padding_idx is not None:
-                module.weight.data[module.padding_idx].zero_()
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
     def forward(self, value_ids, phenotype_ids, attention_mask=None, labels=None):
         B, L = value_ids.size()
@@ -139,12 +134,12 @@ class PhET(nn.Module):
         # Embeddings:        
         x = self.embeddings.value_embeds(value_ids)
         x += self.embeddings.phenotype_embeds(phenotype_ids)
-        x = self.ln(x)
         x = self.dropout(x)
         
         # Transformer layers:
         for layer in self.encoder.layer:
             x = layer(x, mask=attention_mask)
+        x = self.ln(x)
         
         # HM head:
         logits = self.hm_head(x)
