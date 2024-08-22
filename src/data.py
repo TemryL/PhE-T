@@ -56,7 +56,7 @@ class MHMDataModule(L.LightningDataModule):
     def __init__(self, train_data: str, val_data: str, test_data: str,
                  num_features: List[str], cat_features: List[str],
                  batch_size: int = 32, n_workers: int = 4,
-                 n_bins: int = 100,
+                 n_bins: int = 100, binning: str = 'uniform',
                  mhm_probability: float = 0.15,
                  pin_memory: bool = True):
         super().__init__()
@@ -68,24 +68,30 @@ class MHMDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.n_workers = n_workers
         self.n_bins = n_bins
+        self.binning = binning
         self.mhm_probability = mhm_probability
         self.pin_memory = pin_memory
-        self.tokenizer = PhenotypeTokenizer(n_bins=n_bins)
+        self.tokenizer = PhenotypeTokenizer(n_bins=n_bins, binning=binning)
         self.train_dataset = None
         self.val_dataset = None
         self.test_dataset = None
+        self._has_setup = False
 
     def setup(self, stage=None):
-        if stage == 'fit' or stage is None:
+        if not self._has_setup and (stage == 'fit' or stage is None):
             train_df = pd.read_csv(self.train_data).drop('eid', axis=1)
             val_df = pd.read_csv(self.val_data).drop('eid', axis=1)
+            train_df = train_df[self.num_features + self.cat_features]
+            val_df = val_df[self.num_features + self.cat_features]
             self.tokenizer.fit(pd.concat([train_df, val_df]), self.num_features, self.cat_features)
             
             self.train_dataset = MHMDataset(train_df, self.tokenizer, mhm_probability=self.mhm_probability)
             self.val_dataset = MHMDataset(val_df, self.tokenizer, mhm_probability=self.mhm_probability)
+            self._has_setup = True
         
         if stage == 'test' or stage is None:
             test_df = pd.read_csv(self.test_data).drop('eid', axis=1)
+            test_df = test_df[self.num_features + self.cat_features]
             self.test_dataset = MHMDataset(test_df, self.tokenizer, mhm_probability=self.mhm_probability)
         
     def train_dataloader(self):

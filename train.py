@@ -45,14 +45,18 @@ def main():
         num_features =  cfg.num_features,
         cat_features = cfg.cat_features + cfg.diseases,
         n_bins = cfg.n_bins,
+        binning = cfg.binning,
         batch_size = cfg.batch_size,
         n_workers = nb_workers, 
         mhm_probability = cfg.mhm_probability,
         pin_memory = pin_memory
     )
+    dm.setup('fit')
     
     # Create model:
     phet_config = PhETConfig()
+    cfg.phet_config['p_size'] = dm.tokenizer.p_size
+    cfg.phet_config['v_size'] = dm.tokenizer.v_size
     phet_config.update(**cfg.phet_config)
     phet = PhET(phet_config)
     model = MHMTransformer(

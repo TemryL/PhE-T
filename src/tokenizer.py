@@ -10,8 +10,9 @@ class BooleanTraitInfo(TypedDict):
 
 
 class PhenotypeTokenizer:
-    def __init__(self, n_bins: int = 10):
+    def __init__(self, n_bins: int = 10, binning: str = 'uniform'):
         self.n_bins = n_bins
+        self.binnning = binning
         self.p_id_map: Dict[str, int] = {}
         self.p_name_map: Dict[int, str] = {}
         self.v_id_map: Dict[int, Dict[Union[str, int, float, bool], int]] = {}
@@ -32,7 +33,11 @@ class PhenotypeTokenizer:
 
         for feature in num_features:
             self._add_phenotype(feature)
-            bins, bin_edges = pd.qcut(df[feature], q=self.n_bins, duplicates='drop', retbins=True)
+            if self.binnning == 'uniform':
+                bins, bin_edges = pd.cut(df[feature], bins=self.n_bins, duplicates='drop', retbins=True)
+            elif self.binnning == 'quantile':
+                bins, bin_edges = pd.qcut(df[feature], q=self.n_bins, duplicates='drop', retbins=True)
+                
             self.bin_edges[feature] = bin_edges 
             for i in range(len(bin_edges) - 1):
                 lower = round(bin_edges[i], 2)
