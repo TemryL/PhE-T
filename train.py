@@ -47,7 +47,7 @@ def main():
         n_bins = cfg.n_bins,
         batch_size = cfg.batch_size,
         n_workers = nb_workers, 
-        mlm_probability = cfg.mlm_probability,
+        mhm_probability = cfg.mhm_probability,
         pin_memory = pin_memory
     )
     

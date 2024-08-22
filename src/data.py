@@ -8,10 +8,10 @@ from .tokenizer import PhenotypeTokenizer
 
 
 class MHMDataset(Dataset):
-    def __init__(self, df, tokenizer, mlm_probability=0.15):
+    def __init__(self, df, tokenizer, mhm_probability=0.15):
         self.data = []
         self.tokenizer = tokenizer
-        self.mlm_probability = mlm_probability
+        self.mhm_probability = mhm_probability
         self._tokenize(df)
     
     def _tokenize(self, df):
@@ -31,7 +31,7 @@ class MHMDataset(Dataset):
         pred_labels = pred_value_ids.clone()
         
         # Create probability matrix for masking
-        prob_matrix = torch.full(hm_labels.shape, self.mlm_probability)
+        prob_matrix = torch.full(hm_labels.shape, self.mhm_probability)
                 
         # Create mask for health modeling tokens prediction
         hm_mask = torch.bernoulli(prob_matrix).bool()
@@ -57,7 +57,7 @@ class MHMDataModule(L.LightningDataModule):
                  num_features: List[str], cat_features: List[str],
                  batch_size: int = 32, n_workers: int = 4,
                  n_bins: int = 100,
-                 mlm_probability: float = 0.15,
+                 mhm_probability: float = 0.15,
                  pin_memory: bool = True):
         super().__init__()
         self.train_data = train_data
@@ -68,7 +68,7 @@ class MHMDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.n_workers = n_workers
         self.n_bins = n_bins
-        self.mlm_probability = mlm_probability
+        self.mhm_probability = mhm_probability
         self.pin_memory = pin_memory
         self.tokenizer = PhenotypeTokenizer(n_bins=n_bins)
         self.train_dataset = None
@@ -81,12 +81,12 @@ class MHMDataModule(L.LightningDataModule):
             val_df = pd.read_csv(self.val_data).drop('eid', axis=1)
             self.tokenizer.fit(pd.concat([train_df, val_df]), self.num_features, self.cat_features)
             
-            self.train_dataset = MHMDataset(train_df, self.tokenizer, mlm_probability=self.mlm_probability)
-            self.val_dataset = MHMDataset(val_df, self.tokenizer, mlm_probability=self.mlm_probability)
+            self.train_dataset = MHMDataset(train_df, self.tokenizer, mhm_probability=self.mhm_probability)
+            self.val_dataset = MHMDataset(val_df, self.tokenizer, mhm_probability=self.mhm_probability)
         
         if stage == 'test' or stage is None:
             test_df = pd.read_csv(self.test_data).drop('eid', axis=1)
-            self.test_dataset = MHMDataset(test_df, self.tokenizer, mlm_probability=self.mlm_probability)
+            self.test_dataset = MHMDataset(test_df, self.tokenizer, mhm_probability=self.mhm_probability)
         
     def train_dataloader(self):
         return DataLoader(

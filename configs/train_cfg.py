@@ -11,7 +11,7 @@ phet_config = {
 
 # Data:
 batch_size = 256
-mlm_probability = 0.15
+mhm_probability = 0.15
 n_bins = 100
 train_data = 'data/train.csv'
 val_data = 'data/val.csv'
