@@ -11,6 +11,7 @@ class MHMTransformer(L.LightningModule):
         self,
         model,
         tokenizer,
+        config,
         learning_rate: float = 1e-4,
         adamw_epsilon: float = 1e-8,
         adamw_betas: tuple = (0.9, 0.98),

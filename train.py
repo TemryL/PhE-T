@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from importlib.machinery import SourceFileLoader
-from phet import PhETConfig, PhET
+from src.phet import PhETConfig, PhET
 from src.data import MHMDataModule
 from src.model import MHMTransformer
 
@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument("--nb_gpus", help="Number of GPUs per node.", type=int, required=True)
     parser.add_argument("--nb_nodes", help="Number of nodes.", type=int, required=True)
     parser.add_argument("--run_name", help="Name of the run.", type=str, required=True)
-    parser.add_argument("--nb_workers", help="Number of workers.", type=int, default=None)
+    parser.add_argument("--nb_workers", help="Number of workers.", type=int, default=1)
     parser.add_argument("--ckpt_path", help="Path to a checkpoint to resume from.", type=str, default=None)
     parser.add_argument("--pin_memory", action="store_true", help="Use pinned memory for data loading", default=False)
     return parser.parse_args()
@@ -62,6 +62,7 @@ def main():
     model = MHMTransformer(
         model = phet,
         tokenizer = dm.tokenizer,
+        config = phet_config.to_dict(),
         learning_rate = cfg.learning_rate,
         adamw_epsilon = cfg.adamw_epsilon,
         adamw_betas = cfg.adamw_betas,

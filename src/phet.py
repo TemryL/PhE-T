@@ -101,6 +101,13 @@ class PhETConfig:
                 setattr(self, key, value)
             else:
                 raise ValueError(f"Invalid config parameter: {key}")
+    
+    def to_dict(self):
+        return {
+            attr: getattr(self, attr)
+            for attr in vars(self)
+            if not attr.startswith('__') and not callable(getattr(self, attr))
+        }
 
 
 class PhET(nn.Module):
@@ -150,7 +157,8 @@ class PhET(nn.Module):
         return {'loss': loss, 'logits': logits, 'hidden_states': x}
 
     def predict(self, value_ids, phenotype_ids, bool_traits):
-        outputs = self.forward(value_ids, phenotype_ids)
+        with torch.no_grad():
+            outputs = self.forward(value_ids, phenotype_ids)
         logits = outputs['logits']
         probs = F.softmax(logits, dim=-1)
 
@@ -171,14 +179,14 @@ class PhET(nn.Module):
     
     @classmethod
     def from_lightning_checkpoint(cls, ckpt_path):
-        checkpoint = torch.load(ckpt_path, map_location=torch.device('cpu'), weights_only=True)
+        checkpoint = torch.load(ckpt_path, map_location=torch.device('cpu'))
         state_dict = checkpoint['state_dict']
         state_dict = {k.replace('model.', ''): v for k, v in state_dict.items()}
         
         hparams = checkpoint.get('hyper_parameters', {})
         config = PhETConfig()
-        config.update(**hparams.get('phet_config', {}))
+        config.update(**hparams.get('config', {}))
         model = cls(config)
-    
+
         model.load_state_dict(state_dict)    
         return model

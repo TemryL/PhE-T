@@ -43,15 +43,28 @@ To split the dataset in train/val/test sets, run the following command:
 python split.py --data_path data/preprocessed.csv --val_size 10000 --test_size 10000 --save_dir data/
 ```
 
-
 ## Training
 ```bash
 python train.py \
-    --nb_epochs=10 \
-    --nb_gpus=1 \
-    --nb_nodes=1 \
-    --nb_workers=20 \
-    --pin_memory \
-    --config='configs/train_cfg.py' \
-    --run_name='v0'
+--nb_epochs=10 \
+--nb_gpus=1 \
+--nb_nodes=1 \
+--nb_workers=20 \
+--pin_memory \
+--config='configs/train_cfg.py' \
+--run_name='v0'
+```
+
+## Prediction
+```bash
+python predict.py \
+--ckpt_path=$path_to_ckpt.ckpt \
+--data_path=data/val.csv \
+--config=configs/predict_cfg.py \
+--out_dir=scores/
+```
+
+## Evaluate
+```bash
+python evaluate.py scores/rs_asthma.json
 ```
