@@ -4,6 +4,7 @@ notebooks/explore.ipynb
 wandb/
 ckpts/
 scores/
+results
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

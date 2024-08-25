@@ -9,6 +9,7 @@ from .tokenizer import PhenotypeTokenizer
 
 class MHMDataset(Dataset):
     def __init__(self, df, tokenizer, mhm_probability=0.15):
+        self.eids = []
         self.data = []
         self.tokenizer = tokenizer
         self.mhm_probability = mhm_probability
@@ -17,6 +18,9 @@ class MHMDataset(Dataset):
     def _tokenize(self, df):
         for _, row in tqdm(df.iterrows(), desc='Tokenize data', total=len(df)):
             row = row.to_dict()
+            if 'eid' in row:
+                eid = row.pop('eid')
+                self.eids.append(eid)
             self.data.append(self.tokenizer.encode(row))
         
     def __len__(self):
@@ -49,6 +53,7 @@ class MHMDataset(Dataset):
             'hm_labels': hm_labels,
             'pred_value_ids': pred_value_ids,
             'pred_labels': pred_labels,
+            'eid': self.eids[idx]
         }
 
 
@@ -79,8 +84,8 @@ class MHMDataModule(L.LightningDataModule):
 
     def setup(self, stage=None):
         if not self._has_setup and (stage == 'fit' or stage is None):
-            train_df = pd.read_csv(self.train_data).drop('eid', axis=1)
-            val_df = pd.read_csv(self.val_data).drop('eid', axis=1)
+            train_df = pd.read_csv(self.train_data)
+            val_df = pd.read_csv(self.val_data)
             train_df = train_df[self.num_features + self.cat_features]
             val_df = val_df[self.num_features + self.cat_features]
             self.tokenizer.fit(pd.concat([train_df, val_df]), self.num_features, self.cat_features)
@@ -90,7 +95,7 @@ class MHMDataModule(L.LightningDataModule):
             self._has_setup = True
         
         if stage == 'test' or stage is None:
-            test_df = pd.read_csv(self.test_data).drop('eid', axis=1)
+            test_df = pd.read_csv(self.test_data)
             test_df = test_df[self.num_features + self.cat_features]
             self.test_dataset = MHMDataset(test_df, self.tokenizer, mhm_probability=self.mhm_probability)
         

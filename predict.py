@@ -41,8 +41,8 @@ def main():
     tokenizer = checkpoint['hyper_parameters']['tokenizer']
     
     # Load dataset:
-    df = pd.read_csv(data_path).drop('eid', axis=1)
-    df = df[cfg.num_features + cfg.cat_features + cfg.diseases]
+    df = pd.read_csv(data_path)
+    df = df[['eid'] + cfg.num_features + cfg.cat_features + cfg.diseases]
     dataset = MHMDataset(df, tokenizer)
     data_loader = DataLoader(
         dataset,
@@ -65,6 +65,7 @@ def main():
         )
         
         outputs.append({
+            'eids': batch['eid'],
             'scores': scores,
             'labels': batch['pred_labels'],
             'phenotype_ids': batch['phenotype_ids']
@@ -72,6 +73,7 @@ def main():
     
     y = defaultdict(lambda: defaultdict(list))
     for x in outputs:
+        eids = x['eids']
         for trait, y_scores in x['scores'].items():
             p_id = tokenizer.get_phenotype_id(trait)
             info = tokenizer.get_boolean_trait_info(p_id)
@@ -83,12 +85,14 @@ def main():
             y_true = labels.clone()
             y_true[labels == false_id] = 0
             y_true[labels == true_id] = 1
+            y[trait]['eids'].append(eids)
             y[trait]['y_scores'].append(y_scores)
             y[trait]['y_true'].append(y_true)
 
     # Save output in JSON file:
     os.makedirs(out_dir, exist_ok=True)
     for trait, value in y.items():
+        eids = torch.cat(value['eids'])
         y_true = torch.cat(value['y_true'])
         y_scores = torch.cat(value['y_scores'])
             
@@ -99,6 +103,7 @@ def main():
 
         with open(full_path, "w") as f:
             f.write(json.dumps({
+                "eids": eids.tolist(),
                 "y_true": y_true.tolist(),
                 "y_scores": y_scores.tolist()
             }))
