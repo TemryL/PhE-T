@@ -1,17 +1,17 @@
 # Model:
 phet_config = {
-    'n_layers': 6,
-    'n_heads': 8,
-    'h_dim': 512,
+    'n_layers': 12,
+    'n_heads': 12,
+    'h_dim': 768,
     'ln_eps': 1e-12,
     'dropout': 0.1
 }
 
 # Data:
 batch_size = 256
-mhm_probability = 0.30
+mhm_probability = 0.15
 n_bins = 100
-binning = 'uniform'
+binning = 'quantile'
 train_data = 'data/train.csv'
 val_data = 'data/val.csv'
 test_data = 'data/test.csv'

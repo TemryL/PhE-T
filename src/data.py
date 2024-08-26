@@ -28,6 +28,9 @@ class MHMDataset(Dataset):
 
     def __getitem__(self, idx):        
         # Create value_ids, phenotype_ids and labels for MHM and boolean trait prediction
+        eid = None
+        if self.eids:
+            eid = self.eids[idx]
         phenotype_ids = torch.tensor(self.data[idx]['phenotype_ids'])
         hm_value_ids = torch.tensor(self.data[idx]['value_ids'])
         pred_value_ids = torch.tensor(self.data[idx]['value_ids'])
@@ -53,7 +56,7 @@ class MHMDataset(Dataset):
             'hm_labels': hm_labels,
             'pred_value_ids': pred_value_ids,
             'pred_labels': pred_labels,
-            'eid': self.eids[idx]
+            'eid': eid
         }
 
 
@@ -86,8 +89,8 @@ class MHMDataModule(L.LightningDataModule):
         if not self._has_setup and (stage == 'fit' or stage is None):
             train_df = pd.read_csv(self.train_data)
             val_df = pd.read_csv(self.val_data)
-            train_df = train_df[self.num_features + self.cat_features]
-            val_df = val_df[self.num_features + self.cat_features]
+            train_df = train_df[['eid'] + self.num_features + self.cat_features]
+            val_df = val_df[['eid'] + self.num_features + self.cat_features]
             self.tokenizer.fit(pd.concat([train_df, val_df]), self.num_features, self.cat_features)
             
             self.train_dataset = MHMDataset(train_df, self.tokenizer, mhm_probability=self.mhm_probability)
@@ -96,7 +99,7 @@ class MHMDataModule(L.LightningDataModule):
         
         if stage == 'test' or stage is None:
             test_df = pd.read_csv(self.test_data)
-            test_df = test_df[self.num_features + self.cat_features]
+            test_df = test_df[['eid'] + self.num_features + self.cat_features]
             self.test_dataset = MHMDataset(test_df, self.tokenizer, mhm_probability=self.mhm_probability)
         
     def train_dataloader(self):
