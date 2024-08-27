@@ -2,11 +2,11 @@ import argparse
 import torch
 import lightning as L
 from lightning.pytorch.loggers import WandbLogger
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from importlib.machinery import SourceFileLoader
 from src.phet import PhETConfig, PhET
-from src.data import MHMDataModule
-from src.model import MHMTransformer
+from src.datasets import MHMDataModule
+from src.models import MHMTransformer
 
 
 def parse_args():
@@ -73,12 +73,17 @@ def main():
     # Set callbacks:
     lr_monitor = LearningRateMonitor(logging_interval='step')
     val_ckpt = ModelCheckpoint(
-        dirpath = f'ckpts/{run_name}',
+        dirpath = f'ckpts/PhE-T/{run_name}',
         filename = 'best-{epoch}-{step}',
         monitor = 'val/loss',
         mode = 'min',
         save_top_k = 1,
         save_on_train_epoch_end = False,
+    )
+    early_stop = EarlyStopping(
+        monitor="val/loss",
+        mode="min",
+        patience=10
     )
 
     # Set logger:
@@ -94,7 +99,7 @@ def main():
         val_check_interval = 50,
         strategy = "ddp",
         logger = logger, 
-        callbacks = [lr_monitor, val_ckpt],
+        callbacks = [lr_monitor, val_ckpt, early_stop],
         accelerator = 'gpu' if torch.cuda.is_available() else 'cpu',
         enable_progress_bar = True,
         fast_dev_run = False

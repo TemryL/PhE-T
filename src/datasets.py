@@ -128,3 +128,113 @@ class MHMDataModule(L.LightningDataModule):
             num_workers = self.n_workers,
             pin_memory = self.pin_memory
         )
+
+
+class SpiroDataset(Dataset):
+    def __init__(self, data_path, balance=False):
+        self.data = pd.read_pickle(data_path)
+        if balance:
+            self.data = self._balance_dataset()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return {
+            'eid': int(self.data.iloc[idx]['eid']),
+            'flow_volume': torch.from_numpy(self.data.iloc[idx]['flow_volume']),
+            'label': int(self.data.iloc[idx]['label']),
+        }
+
+    def _balance_dataset(self):
+        labels = self.data['label']
+        positive_samples = self.data[labels == 1]
+        negative_samples = self.data[labels == 0]
+        
+        # Undersample the majority class
+        if len(positive_samples) < len(negative_samples):
+            negative_samples = negative_samples.sample(n=len(positive_samples), random_state=42)
+        else:
+            positive_samples = positive_samples.sample(n=len(negative_samples), random_state=42)
+        
+        # Combine the balanced datasets
+        balanced_df = pd.concat([positive_samples, negative_samples]).reset_index(drop=True)
+        return balanced_df
+
+    def get_prevalence(self):
+        labels = self.data['label']
+        total_samples = len(labels)
+        positive_samples = sum(labels)
+        negative_samples = total_samples - positive_samples
+        
+        return {
+            "total_samples": total_samples,
+            "positive_samples": positive_samples,
+            "negative_samples": negative_samples,
+            "positive_ratio": positive_samples / total_samples,
+            "negative_ratio": negative_samples / total_samples
+        }
+
+class SpiroDataModule(L.LightningDataModule):
+    def __init__(self, train_data: str, val_data: str, test_data: str,
+                 batch_size: int = 32, n_workers: int = 4,
+                 pin_memory: bool = True, balance_train: bool = False):
+        super().__init__()
+        self.train_data = train_data
+        self.val_data = val_data
+        self.test_data = test_data
+        self.batch_size = batch_size
+        self.n_workers = n_workers
+        self.pin_memory = pin_memory
+        self.balance_train = balance_train
+        self.train_dataset = None
+        self.val_dataset = None
+        self.test_dataset = None
+
+    def setup(self, stage=None):
+        if stage == 'fit' or stage is None:
+            self.train_dataset = SpiroDataset(self.train_data, balance=self.balance_train)
+            self.val_dataset = SpiroDataset(self.val_data)
+            print("Train dataset prevalence:")
+            self._print_prevalence(self.train_dataset)
+            print("Validation dataset prevalence:")
+            self._print_prevalence(self.val_dataset)
+
+        if stage == 'test' or stage is None:
+            self.test_dataset = SpiroDataset(self.test_data)
+            print("Test dataset prevalence:")
+            self._print_prevalence(self.test_dataset)
+
+    def _print_prevalence(self, dataset):
+        prevalence = dataset.get_prevalence()
+        print(f"Total samples: {prevalence['total_samples']}")
+        print(f"Positive samples (cases): {prevalence['positive_samples']} ({prevalence['positive_ratio']:.2%})")
+        print(f"Negative samples (controls): {prevalence['negative_samples']} ({prevalence['negative_ratio']:.2%})")
+        print()
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.n_workers,
+            pin_memory=self.pin_memory
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.n_workers,
+            pin_memory=self.pin_memory
+        )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.n_workers,
+            pin_memory=self.pin_memory
+        )

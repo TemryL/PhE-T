@@ -1,9 +1,11 @@
 import torch
 import lightning as L
+import torch.nn as nn
 from collections import defaultdict
 from torch.optim import AdamW
 from torcheval.metrics.functional import binary_auroc, binary_auprc
 from transformers import get_linear_schedule_with_warmup
+from .resnet import ResNet18D1D
 
 
 class MHMTransformer(L.LightningModule):
@@ -112,6 +114,77 @@ class MHMTransformer(L.LightningModule):
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adamw_epsilon, betas=self.hparams.adamw_betas)
 
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=self.hparams.warmup_steps,
+            num_training_steps=self.trainer.estimated_stepping_batches,
+        )
+        scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
+        return [optimizer], [scheduler]
+
+
+class AsthmaResNet(L.LightningModule):
+    def __init__(
+        self,
+        learning_rate: float = 1e-4,
+        weight_decay: float = 0,
+        warmup_steps: int = 0
+    ):
+        super().__init__()
+        self.save_hyperparameters(ignore=['backbone'])
+        self.backbone = ResNet18D1D()
+        
+        self.head = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1)
+        )
+        
+        self.validation_step_outputs = []
+        self.criterion = nn.BCEWithLogitsLoss()
+
+    def forward(self, x):
+        x = self.backbone(x)
+        return self.head(x)
+
+    def training_step(self, batch, batch_idx):
+        x = batch['flow_volume'].unsqueeze(1)  # Add channel dimension
+        y = batch['label'].float()
+        y_hat = self(x).squeeze()
+        loss = self.criterion(y_hat, y)
+        self.log('train/loss', loss, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x = batch['flow_volume'].unsqueeze(1)  # Add channel dimension
+        y = batch['label'].float()
+        y_hat = self(x).squeeze()
+        loss = self.criterion(y_hat, y)
+        self.validation_step_outputs.append({'loss': loss, 'y': y, 'y_hat': y_hat})
+        return loss
+
+    def on_validation_epoch_end(self):
+        outputs = self.validation_step_outputs
+        losses = torch.stack([x['loss'] for x in outputs])
+        y = torch.cat([x['y'] for x in outputs])
+        y_hat = torch.cat([x['y_hat'] for x in outputs])
+
+        loss = torch.mean(losses)
+        auroc = binary_auroc(y_hat, y.int())
+        auprc = binary_auprc(y_hat, y.int())
+
+        # Log results
+        self.log("val/loss", loss, sync_dist=True)
+        self.log("val/auroc", auroc, sync_dist=True)
+        self.log("val/auprc", auprc, sync_dist=True)
+        self.validation_step_outputs.clear()
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate, weight_decay=self.hparams.weight_decay)
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=self.hparams.warmup_steps,
