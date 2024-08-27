@@ -34,14 +34,17 @@ python commands/create_data.py $UKB_FOLDER ../data/field_to_basket.json ../data/
 ### Preprocessing Raw Data
 Return to the root folder and preprocess the raw data with the following command:
 ```bash
-python preprocess.py data/raw_data.csv configs/preprocess_cfg.py data/preprocessed.csv
+python preprocess.py data/raw.csv configs/preprocess_cfg.py data/preprocessed.csv
 ```
 
-### Generating splits
+### Generating Splits
 To split the dataset in train/val/test sets, run the following command:
 ```bash
 python split.py --data_path data/preprocessed.csv --val_size 10000 --test_size 10000 --save_dir data/
 ```
+
+### Preparing Spirometry Data
+Prepare the spirometry data by running the following notebooks: [notebooks/prepare_spiro.ipynb](notebooks/prepare_spiro.ipynb).
 
 ## Training
 ```bash
