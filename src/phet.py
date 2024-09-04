@@ -135,13 +135,15 @@ class PhET(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
-    def forward(self, value_ids, phenotype_ids, attention_mask=None, labels=None):
+    def forward(self, value_ids, phenotype_ids, attention_mask=None, labels=None, embeds=None):
         B, L = value_ids.size()
         
         # Embeddings:        
         x = self.embeddings.value_embeds(value_ids)
         x += self.embeddings.phenotype_embeds(phenotype_ids)
         x = self.dropout(x)
+        if embeds is not None:
+            x = torch.cat((embeds, x), dim=-2)
         
         # Transformer layers:
         for layer in self.encoder.layer:
@@ -173,7 +175,6 @@ class PhET(nn.Module):
             positive_probs = trait_probs[:, trait_info['true_id']]
             negative_probs = trait_probs[:, trait_info['false_id']]
             score = positive_probs / (positive_probs + negative_probs)
-            # risk_score = positive_probs
             scores[trait_info['name']] = score
         return scores
     

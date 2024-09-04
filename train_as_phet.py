@@ -4,9 +4,8 @@ import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from importlib.machinery import SourceFileLoader
-from src.phet import PhETConfig, PhET
-from src.datasets import MHMDataModule
-from src.models import MHMPhET
+from src.datasets import TabSpiroDataModule
+from src.models import AsthmaPhET
 
 
 def parse_args():
@@ -36,44 +35,39 @@ def main():
     ckpt_path = args.ckpt_path
     nb_workers = args.nb_workers
     pin_memory = args.pin_memory
-    
+        
     # Create data module: 
-    dm = MHMDataModule(
-        train_data = cfg.train_data,
-        val_data = cfg.val_data,
-        test_data = cfg.test_data,
-        num_features =  cfg.num_features,
-        cat_features = cfg.cat_features + cfg.diseases,
-        n_bins = cfg.n_bins,
-        binning = cfg.binning,
+    dm = TabSpiroDataModule(
+        tab_train = cfg.tab_train,
+        tab_val = cfg.tab_val,
+        tab_test = cfg.tab_test,
+        spiro_train = cfg.spiro_train,
+        spiro_val = cfg.spiro_val,
+        spiro_test = cfg.spiro_test,
+        ckpt_tokenizer = cfg.ckpt_phet,
+        num_features = cfg.num_features,
+        cat_features = cfg.cat_features,
         batch_size = cfg.batch_size,
         n_workers = nb_workers, 
-        mhm_probability = cfg.mhm_probability,
         pin_memory = pin_memory
     )
-    dm.setup('fit')
     
     # Create model:
-    phet_config = PhETConfig()
-    cfg.phet_config['p_size'] = dm.tokenizer.p_size
-    cfg.phet_config['v_size'] = dm.tokenizer.v_size
-    phet_config.update(**cfg.phet_config)
-    phet = PhET(phet_config)
-    model = MHMPhET(
-        model = phet,
-        tokenizer = dm.tokenizer,
-        config = phet_config.to_dict(),
+    model = AsthmaPhET(
+        ckpt_phet = cfg.ckpt_phet,
+        ckpt_resnet = cfg.ckpt_resnet,
+        n_embeds = cfg.n_embeds,
+        freeze_phet = cfg.freeze_phet,
+        freeze_resnet = cfg.freeze_resnet,
         learning_rate = cfg.learning_rate,
-        adamw_epsilon = cfg.adamw_epsilon,
-        adamw_betas = cfg.adamw_betas,
-        warmup_steps = cfg.warmup_steps,
-        weight_decay = cfg.weight_decay
+        weight_decay = cfg.weight_decay,
+        warmup_steps = cfg.warmup_steps
     )
     
     # Set callbacks:
     lr_monitor = LearningRateMonitor(logging_interval='step')
     val_ckpt = ModelCheckpoint(
-        dirpath = f'ckpts/PhE-T/{run_name}',
+        dirpath = f'ckpts/AsthmaPhE-T/{run_name}',
         filename = 'best-{epoch}-{step}',
         monitor = 'val/loss',
         mode = 'min',
@@ -87,7 +81,7 @@ def main():
     )
 
     # Set logger:
-    logger = WandbLogger(project='PhE-T', name=run_name)
+    logger = WandbLogger(project='AsthmaPhE-T', name=run_name)
     logger.watch(model)
     
     # Set trainer:
@@ -99,14 +93,16 @@ def main():
         val_check_interval = 50,
         strategy = "ddp",
         logger = logger, 
-        callbacks = [lr_monitor, val_ckpt, early_stop],
+        # callbacks = [lr_monitor, val_ckpt, early_stop],
+        callbacks = [lr_monitor, val_ckpt],
         accelerator = 'gpu' if torch.cuda.is_available() else 'cpu',
         enable_progress_bar = True,
         fast_dev_run = False
     )
 
     # Fit model:
-    trainer.fit(model, datamodule=dm, ckpt_path=ckpt_path)
+    #trainer.fit(model, datamodule=dm, ckpt_path=ckpt_path)
+    trainer.test(model, datamodule=dm, ckpt_path=ckpt_path)
 
 
 if __name__ == '__main__':

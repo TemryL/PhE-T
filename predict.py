@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from importlib.machinery import SourceFileLoader
 
 from src.phet import PhET
-from src.data import MHMDataset
+from src.datasets import MHMDataset
 
 
 def parse_args():

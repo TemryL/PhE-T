@@ -4,9 +4,8 @@ import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from importlib.machinery import SourceFileLoader
-from src.phet import PhETConfig, PhET
-from src.datasets import MHMDataModule
-from src.models import MHMPhET
+from src.datasets import SpiroDataModule
+from src.models import AsthmaResNet
 
 
 def parse_args():
@@ -38,42 +37,26 @@ def main():
     pin_memory = args.pin_memory
     
     # Create data module: 
-    dm = MHMDataModule(
+    dm = SpiroDataModule(
         train_data = cfg.train_data,
         val_data = cfg.val_data,
         test_data = cfg.test_data,
-        num_features =  cfg.num_features,
-        cat_features = cfg.cat_features + cfg.diseases,
-        n_bins = cfg.n_bins,
-        binning = cfg.binning,
+        balance_train = cfg.balance_train,
         batch_size = cfg.batch_size,
         n_workers = nb_workers, 
-        mhm_probability = cfg.mhm_probability,
         pin_memory = pin_memory
     )
-    dm.setup('fit')
     
     # Create model:
-    phet_config = PhETConfig()
-    cfg.phet_config['p_size'] = dm.tokenizer.p_size
-    cfg.phet_config['v_size'] = dm.tokenizer.v_size
-    phet_config.update(**cfg.phet_config)
-    phet = PhET(phet_config)
-    model = MHMPhET(
-        model = phet,
-        tokenizer = dm.tokenizer,
-        config = phet_config.to_dict(),
+    model = AsthmaResNet(
         learning_rate = cfg.learning_rate,
-        adamw_epsilon = cfg.adamw_epsilon,
-        adamw_betas = cfg.adamw_betas,
-        warmup_steps = cfg.warmup_steps,
         weight_decay = cfg.weight_decay
     )
     
     # Set callbacks:
     lr_monitor = LearningRateMonitor(logging_interval='step')
     val_ckpt = ModelCheckpoint(
-        dirpath = f'ckpts/PhE-T/{run_name}',
+        dirpath = f'ckpts/AsthmaResNet/{run_name}',
         filename = 'best-{epoch}-{step}',
         monitor = 'val/loss',
         mode = 'min',
@@ -83,11 +66,11 @@ def main():
     early_stop = EarlyStopping(
         monitor="val/loss",
         mode="min",
-        patience=10
+        patience=50
     )
 
     # Set logger:
-    logger = WandbLogger(project='PhE-T', name=run_name)
+    logger = WandbLogger(project='AsthmaResNet', name=run_name)
     logger.watch(model)
     
     # Set trainer:

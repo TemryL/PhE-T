@@ -58,6 +58,28 @@ python train.py \
 --run_name='v0'
 ```
 
+```bash
+python train_resnet.py \
+--nb_epochs=10 \
+--nb_gpus=1 \
+--nb_nodes=1 \
+--nb_workers=20 \
+--pin_memory \
+--config='configs/train_resnet_cfg.py' \
+--run_name='v0'
+```
+
+```bash
+python train_as_phet.py \
+--nb_epochs=10 \
+--nb_gpus=1 \
+--nb_nodes=1 \
+--nb_workers=20 \
+--pin_memory \
+--config='configs/train_cfg_as.py' \
+--run_name='v0'
+```
+
 ## Prediction
 ```bash
 python predict.py \
