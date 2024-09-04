@@ -6,16 +6,15 @@ from collections import defaultdict
 from torch.optim import AdamW
 from torcheval.metrics.functional import binary_auroc, binary_auprc
 from transformers import get_linear_schedule_with_warmup
-from .phet import PhET
+from .phet import PhET, PhETConfig
 from .resnet import ResNet18D1D
 
 
 class MHMPhET(L.LightningModule):
     def __init__(
         self,
-        model,
         tokenizer,
-        config,
+        phet_config,
         learning_rate: float = 1e-4,
         adamw_epsilon: float = 1e-8,
         adamw_betas: tuple = (0.9, 0.98),
@@ -24,7 +23,14 @@ class MHMPhET(L.LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters(ignore=['model'])
-        self.model = model
+        
+        phet_config['p_size'] = tokenizer.p_size
+        phet_config['v_size'] = tokenizer.v_size
+        config = PhETConfig()
+        config.update(**phet_config)
+        phet = PhET(config)
+        self.model = phet
+        
         self.tokenizer = tokenizer
         self.validation_step_outputs = []
 

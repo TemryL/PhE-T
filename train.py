@@ -4,13 +4,13 @@ import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from importlib.machinery import SourceFileLoader
-from src.phet import PhETConfig, PhET
-from src.datasets import MHMDataModule
-from src.models import MHMPhET
+from src.datasets import MHMDataModule, SpiroDataModule, TabSpiroDataModule
+from src.models import MHMPhET, AsthmaResNet, AsthmaPhET
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--model", help="Name of the model to train. Should be either 'phet', 'as-resnet' or 'as-phet'.", type=str, required=True)
     parser.add_argument("--config", help="Path to the config file.", type=str, required=True)
     parser.add_argument("--nb_epochs", help="Number of epochs.", type=int, required=True)
     parser.add_argument("--nb_gpus", help="Number of GPUs per node.", type=int, required=True)
@@ -29,6 +29,7 @@ def main():
     # Parse arguments:
     args = parse_args()
     cfg = SourceFileLoader("config", args.config).load_module()
+    model = args.model
     nb_epochs = args.nb_epochs
     nb_gpus = args.nb_gpus
     nb_nodes = args.nb_nodes
@@ -37,43 +38,46 @@ def main():
     nb_workers = args.nb_workers
     pin_memory = args.pin_memory
     
-    # Create data module: 
-    dm = MHMDataModule(
-        train_data = cfg.train_data,
-        val_data = cfg.val_data,
-        test_data = cfg.test_data,
-        num_features =  cfg.num_features,
-        cat_features = cfg.cat_features + cfg.diseases,
-        n_bins = cfg.n_bins,
-        binning = cfg.binning,
-        batch_size = cfg.batch_size,
-        n_workers = nb_workers, 
-        mhm_probability = cfg.mhm_probability,
-        pin_memory = pin_memory
-    )
-    dm.setup('fit')
+    # Create data module:
+    if model == 'phet':
+        dm = MHMDataModule(
+            n_workers = nb_workers,
+            pin_memory = pin_memory,
+            **cfg.data_module_cfg
+        )
+        dm.setup('fit')
+    elif model == 'as-resnet':
+        dm = SpiroDataModule(
+            n_workers = nb_workers,
+            pin_memory = pin_memory,
+            **cfg.data_module_cfg
+        )
+    elif model == 'as-phet':
+        dm = TabSpiroDataModule(
+            n_workers = nb_workers,
+            pin_memory = pin_memory,
+            **cfg.data_module_cfg
+        )
     
     # Create model:
-    phet_config = PhETConfig()
-    cfg.phet_config['p_size'] = dm.tokenizer.p_size
-    cfg.phet_config['v_size'] = dm.tokenizer.v_size
-    phet_config.update(**cfg.phet_config)
-    phet = PhET(phet_config)
-    model = MHMPhET(
-        model = phet,
-        tokenizer = dm.tokenizer,
-        config = phet_config.to_dict(),
-        learning_rate = cfg.learning_rate,
-        adamw_epsilon = cfg.adamw_epsilon,
-        adamw_betas = cfg.adamw_betas,
-        warmup_steps = cfg.warmup_steps,
-        weight_decay = cfg.weight_decay
-    )
+    if model == 'phet':
+        model = MHMPhET(
+            tokenizer = dm.tokenizer,
+            **cfg.model_cfg
+        )
+    elif model == 'as-resnet':
+        model = AsthmaResNet(
+            **cfg.model_cfg
+        )
+    elif model == 'as-phet':
+        model = AsthmaPhET(
+            **cfg.model_cfg
+        )
     
     # Set callbacks:
     lr_monitor = LearningRateMonitor(logging_interval='step')
     val_ckpt = ModelCheckpoint(
-        dirpath = f'ckpts/PhE-T/{run_name}',
+        dirpath = f'ckpts/{cfg.name}/{run_name}',
         filename = 'best-{epoch}-{step}',
         monitor = 'val/loss',
         mode = 'min',
@@ -85,9 +89,9 @@ def main():
         mode="min",
         patience=10
     )
-
+    
     # Set logger:
-    logger = WandbLogger(project='PhE-T', name=run_name)
+    logger = WandbLogger(project=cfg.name, name=run_name)
     logger.watch(model)
     
     # Set trainer:
