@@ -97,15 +97,24 @@ python train.py --model='as-phet' \
 ## Prediction
 
 ```bash
-python predict.py \
---ckpt_path=$path_to_ckpt.ckpt \
---data_path=data/val.csv \
---config=configs/predict_cfg.py \
---out_dir=scores/
+python predict.py --model='phet' \
+--ckpt_path=ckpts/PhE-T/v0/best-epoch=3-step=3842.ckpt \
+--out_dir=scores/phet \
+--nb_workers=8 \
+--config='configs/train_phet_cfg.py'
+```
+
+```bash
+python predict.py --model='as-phet' \
+--ckpt_path=ckpts/AsthmaPhE-T/v0/best-epoch=6-step=5030.ckpt \
+--out_dir=scores/as-phet \
+--nb_workers=8 \
+--config='configs/train_as-phet_cfg.py'
 ```
 
 ## Evaluate
 
 ```bash
-python evaluate.py scores/rs_asthma.json
+python scripts/generate_results.py scores/phet results/phet
+python scripts/generate_results.py scores/as-phet results/as-phet
 ```

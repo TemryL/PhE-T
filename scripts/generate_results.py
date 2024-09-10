@@ -6,7 +6,7 @@ sys.path.append("..")
 import os
 import json
 import argparse
-from evaluate import evaluate
+from src.evaluate import evaluate
 
 
 def parse_args():
@@ -86,6 +86,5 @@ def main():
             f.write(json.dumps(results['metrics']))
 
 
-# python generate_results 
 if __name__ == "__main__":
     main()

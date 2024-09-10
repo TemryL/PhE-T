@@ -1,3 +1,5 @@
+import os
+import json
 import torch
 import lightning as L
 import torch.nn as nn
@@ -20,6 +22,7 @@ class MHMPhET(L.LightningModule):
         adamw_betas: tuple = (0.9, 0.98),
         warmup_steps: int = 10000,
         weight_decay: float = 0.0,
+        out_dir: str = 'scores/phet'
     ):
         super().__init__()
         self.save_hyperparameters(ignore=['model'])
@@ -30,9 +33,11 @@ class MHMPhET(L.LightningModule):
         config.update(**phet_config)
         phet = PhET(config)
         self.model = phet
+        self.out_dir = out_dir
         
         self.tokenizer = tokenizer
         self.validation_step_outputs = []
+        self.test_step_outputs = []
 
     def forward(self, **inputs):
         return self.model(**inputs)
@@ -105,6 +110,61 @@ class MHMPhET(L.LightningModule):
             self.log(f"val/auprc/{name}", metrics['AUPRC'], sync_dist=True)
 
         self.validation_step_outputs.clear()
+    
+    def test_step(self, batch, batch_idx):
+        scores = self.model.predict(
+            value_ids = batch['pred_value_ids'],
+            phenotype_ids = batch['phenotype_ids'],
+            bool_traits = self.tokenizer.boolean_traits
+        )
+        
+        self.test_step_outputs.append({
+            'eids': batch['eid'],
+            'scores': scores,
+            'labels': batch['pred_labels'],
+            'phenotype_ids': batch['phenotype_ids']
+        })
+
+    def on_test_epoch_end(self):
+        outputs = self.test_step_outputs
+        y = defaultdict(lambda: defaultdict(list))
+        for x in outputs:
+            eids = x['eids']
+            for trait, y_scores in x['scores'].items():
+                p_id = self.tokenizer.get_phenotype_id(trait)
+                info = self.tokenizer.get_boolean_trait_info(p_id)
+                true_id = info['true_id']
+                false_id = info['false_id']
+                
+                phenotype_ids = x['phenotype_ids']
+                labels = x['labels'][phenotype_ids == p_id]
+                y_true = labels.clone()
+                y_true[labels == false_id] = 0
+                y_true[labels == true_id] = 1
+                y[trait]['eids'].append(eids)
+                y[trait]['y_scores'].append(y_scores)
+                y[trait]['y_true'].append(y_true)
+
+        # Save output in JSON file:
+        os.makedirs(self.out_dir, exist_ok=True)
+        for trait, value in y.items():
+            eids = torch.cat(value['eids'])
+            y_true = torch.cat(value['y_true'])
+            y_scores = torch.cat(value['y_scores'])
+                
+            trait_name = trait.lower().replace(" ", "-")
+            filename = f"rs_{trait_name}"
+            filename += ".json"
+            full_path = os.path.join(self.out_dir, filename)
+
+            with open(full_path, "w") as f:
+                f.write(json.dumps({
+                    "eids": eids.tolist(),
+                    "y_true": y_true.tolist(),
+                    "y_scores": y_scores.tolist()
+                }))
+        print(f"Scores saved successfully in {self.out_dir}")
+        self.test_step_outputs.clear()
 
     def configure_optimizers(self):
         """Prepare optimizer and schedule (linear warmup and decay)"""
@@ -205,7 +265,8 @@ class AsthmaPhET(L.LightningModule):
     def __init__(self, ckpt_phet, ckpt_resnet, n_embeds=1, freeze_phet=True, freeze_resnet=True,
             learning_rate: float = 1e-4,
             weight_decay: float = 0,
-            warmup_steps: int = 0
+            warmup_steps: int = 0,
+            out_dir: str = 'scores/as-phet'
         ):
         super().__init__()
         self.save_hyperparameters(ignore=['phet', 'resnet'])
@@ -236,7 +297,8 @@ class AsthmaPhET(L.LightningModule):
             nn.ReLU(),
             nn.Linear(self.h_dim, self.n_embeds*self.h_dim)
         )
-                
+        
+        self.out_dir = out_dir
         self.validation_step_outputs = []
         self.test_step_outputs = []
     
@@ -304,7 +366,6 @@ class AsthmaPhET(L.LightningModule):
         self.log("val/auprc", auprc, sync_dist=True)
         self.validation_step_outputs.clear()
     
-    
     def test_step(self, batch, batch_idx):
         outputs = self(
             value_ids=batch['value_ids'],
@@ -321,29 +382,18 @@ class AsthmaPhET(L.LightningModule):
 
     def on_test_epoch_end(self):
         outputs = self.test_step_outputs
-        losses = torch.stack([x['loss'] for x in outputs])
         y = torch.cat([x['y'] for x in outputs])
         y_hat = torch.cat([x['y_hat'] for x in outputs])
         eids = torch.cat([x['eids'] for x in outputs])
 
-        loss = torch.mean(losses)
-        auroc = binary_auroc(y_hat, y.int())
-        auprc = binary_auprc(y_hat, y.int())
-
-        import os
-        import json
-        os.makedirs('scores/as-phet/', exist_ok=True)
-        with open('scores/as-phet/rs_asthma.json', "w") as f:
+        os.makedirs(self.out_dir, exist_ok=True)
+        with open(os.path.join(self.out_dir, 'rs_asthma.json'), 'w') as f:
             f.write(json.dumps({
                 "eids": eids.tolist(),
                 "y_true": y.tolist(),
                 "y_scores": y_hat.tolist()
             }))
-            
-        # Log results
-        self.log("test/loss", loss, sync_dist=True)
-        self.log("test/auroc", auroc, sync_dist=True)
-        self.log("test/auprc", auprc, sync_dist=True)
+        
         self.test_step_outputs.clear()
 
     def configure_optimizers(self):
