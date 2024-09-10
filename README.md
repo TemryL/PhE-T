@@ -52,7 +52,7 @@ python preprocess.py data/raw.csv configs/preprocess_cfg.py data/preprocessed.cs
 To split the dataset in train/val/test sets, run the following command:
 
 ```bash
-python split.py --data_path data/preprocessed.csv --val_size 10000 --test_size 10000 --save_dir data/
+python scripts/split.py --data_path data/preprocessed.csv --val_size 10000 --test_size 10000 --save_dir data/
 ```
 
 ### Preparing Spirometry Data
