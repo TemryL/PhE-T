@@ -5,6 +5,7 @@ wandb/
 ckpts/
 scores/
 results
+plots/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
